@@ -40,7 +40,7 @@ import net.imagej.ImageJ;
 
 @SuppressWarnings("unused")
 @Plugin(type = ContextCommand.class, menuPath = "Plugins>VCell>Base Data Display")
-public class WebSearchClean extends ContextCommand {
+public class BaseImport extends ContextCommand {
     @Parameter
     private UIService uiService;
 
