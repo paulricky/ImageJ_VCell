@@ -41,7 +41,7 @@ import javax.swing.text.html.HTMLEditorKit;
 import javax.swing.text.html.HTMLFrameHyperlinkEvent;
 import javax.swing.text.html.StyleSheet;
 
-@SuppressWarnings("unused")
+//@SuppressWarnings("unused")
 @Plugin(type = ContextCommand.class, menuPath = "Plugins>VCell> Test Search")
 public class WebSearch extends ContextCommand {
     @Parameter
@@ -148,6 +148,17 @@ public class WebSearch extends ContextCommand {
         }
 
         return data;
+    }
+    
+    private static void handleTableLinkClick(JTable table, int row, int column) {
+        String url = (String) table.getValueAt(row, column);
+        if (url != null && !url.isEmpty()) {
+            try {
+                Desktop.getDesktop().browse(new URI(url));
+            } catch (IOException | URISyntaxException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     @SuppressWarnings("serial")
@@ -350,6 +361,14 @@ public class WebSearch extends ContextCommand {
                         adjustRowHeight(table);
                         table.setDefaultRenderer(Object.class, new QuotationCellRenderer());
                         table.setDefaultEditor(Object.class, null);
+                        
+                        table.addMouseListener(new MouseAdapter() {
+                            public void mouseClicked(MouseEvent e) {
+                                int row = table.rowAtPoint(e.getPoint());
+                                int col = table.columnAtPoint(e.getPoint());
+                                handleTableLinkClick(table, row, col);
+                            }
+                        });
 
                         JScrollPane panel = new JScrollPane(table);
                         panel.setPreferredSize(new Dimension(1500, 500));
