@@ -9,6 +9,7 @@ import org.jsoup.nodes.Node;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.stream.IntStream;
 
 import org.scijava.command.ContextCommand;
 import org.scijava.plugin.Parameter;
@@ -30,6 +31,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.net.URI;
 import java.net.URISyntaxException;
+
 import ij.gui.GenericDialog;
 import net.imagej.ImageJ;
 import javax.swing.text.AttributeSet;
@@ -60,25 +62,7 @@ public class WebSearch extends ContextCommand {
         }
     }
 
-    private static void handleTableLinkClick(JTable table) {
-        table.addMouseMotionListener(new MouseAdapter() {
-            @Override
-            public void mouseMoved(MouseEvent e) {
-                JTable table = (JTable) e.getSource();
-                Point point = e.getPoint();
-                int row = table.rowAtPoint(point);
-                int column = table.columnAtPoint(point);
-                Object value = table.getValueAt(row, column);
-
-                if (value != null && value.toString().contains("<a href=")) {
-                    table.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-                } else {
-                    table.setCursor(Cursor.getDefaultCursor());
-                }
-            }
-        });
-
-
+    private static void linkClicked(JTable table) {
         table.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -93,8 +77,22 @@ public class WebSearch extends ContextCommand {
                         Document doc = Jsoup.parse(value.toString());
                         Element link = doc.select("a").first();
                         String url = link.attr("href");
-                        Desktop.getDesktop().browse(new URI(url));
-                    } catch (IOException | URISyntaxException ex) {
+
+                        Document linkedDoc = Jsoup.connect(url).get();
+                        String linkedContent = formatLinkedContent(linkedDoc);
+
+                        JFrame linkFrame = new JFrame("Simulation Description");
+                        JEditorPane editorPane = new JEditorPane();
+                        editorPane.setContentType("text/html");
+                        editorPane.setEditable(false);
+                        editorPane.setText("<html>" + linkedContent + "</html>");
+
+                        JScrollPane linkPanel = new JScrollPane(editorPane);
+                        linkFrame.add(linkPanel);
+                        linkFrame.setPreferredSize(new Dimension(1500, 600));
+                        linkFrame.pack();
+                        linkFrame.setVisible(true);
+                    } catch (IOException ex) {
                         ex.printStackTrace();
                     }
                 }
@@ -102,18 +100,36 @@ public class WebSearch extends ContextCommand {
         });
     }
 
+    private static String formatLinkedContent(Document linkedDoc) {
+        Elements rows = linkedDoc.select("tr");
+        StringBuilder tableContent = new StringBuilder("<table>");
+
+        for (Element row : rows) {
+            Elements cells = row.select("td");
+            tableContent.append("<tr>");
+
+            for (Element cell : cells) {
+                tableContent.append("<td>").append(cell.html()).append("</td>");
+            }
+
+            tableContent.append("</tr>");
+        }
+
+        tableContent.append("</table>");
+        return tableContent.toString();
+    }
+
+
+
     private static String[] extractFormat(Element table) {
         Elements headerCells = table.select("th");
         String[] format = new String[headerCells.size()];
 
-        // Check if there are no <th> elements
         if (headerCells.isEmpty()) {
-            // Create a default format with empty strings
             for (int i = 0; i < format.length; i++) {
                 format[i] = "";
             }
         } else {
-            // Extract the format from the <th> elements
             for (int i = 0; i < headerCells.size(); i++) {
                 format[i] = headerCells.get(i).text();
             }
@@ -151,17 +167,6 @@ public class WebSearch extends ContextCommand {
         return data;
     }
 
-    
-    private static void handleTableLinkClick(JTable table, int row, int column) {
-        String url = (String) table.getValueAt(row, column);
-        if (url != null && !url.isEmpty()) {
-            try {
-                Desktop.getDesktop().browse(new URI(url));
-            } catch (IOException | URISyntaxException e) {
-                e.printStackTrace();
-            }
-        }
-    }
 
     @SuppressWarnings("serial")
     private class JTextAreaCellRenderer extends JTextArea implements TableCellRenderer {
@@ -230,12 +235,7 @@ public class WebSearch extends ContextCommand {
                             HTMLFrameHyperlinkEvent evt = (HTMLFrameHyperlinkEvent) e;
                             HTMLDocument doc = (HTMLDocument) textPane.getDocument();
                             doc.processHTMLFrameHyperlinkEvent(evt);
-                        } else {
-                            try {
-                                Desktop.getDesktop().browse(e.getURL().toURI());
-                            } catch (IOException | URISyntaxException ex) {
-                                ex.printStackTrace();
-                            }
+                       
                         }
                     }
                 }
@@ -271,6 +271,33 @@ public class WebSearch extends ContextCommand {
             }
         }
 
+    }
+    
+    private static class HyperlinkCellRenderer extends DefaultTableCellRenderer {
+        public HyperlinkCellRenderer() {
+            setHorizontalAlignment(SwingConstants.CENTER);
+        }
+
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
+                int row, int column) {
+            JEditorPane editorPane = new JEditorPane();
+            editorPane.setContentType("text/html");
+            editorPane.setEditable(false);
+            editorPane.setText(value != null ? value.toString() : "");
+            return editorPane;
+        }
+    }
+    
+    private int findHyperlinkColumnIndex(JTable table) {
+        String[] header = new String[table.getColumnCount()];
+        for (int i = 0; i < header.length; i++) {
+            header[i] = table.getColumnName(i);
+        }
+        // Replace "Your Hyperlink Column Header" with the actual header of the hyperlink column
+        return IntStream.range(0, header.length)
+                .filter(i -> header[i].equals("Your Hyperlink Column Header"))
+                .findFirst()
+                .orElse(-1);
     }
 
     @SuppressWarnings("serial")
@@ -363,30 +390,21 @@ public class WebSearch extends ContextCommand {
                         adjustRowHeight(table);
                         table.setDefaultRenderer(Object.class, new QuotationCellRenderer());
                         table.setDefaultEditor(Object.class, null);
+                   
+                        linkClicked(table);
+                  
+                       /* int hyperlinkColumnIndex = findHyperlinkColumnIndex(table);
+
                         
-                        table.addMouseListener(new MouseAdapter() {
-                            public void mouseClicked(MouseEvent e) {
-                                int row = table.rowAtPoint(e.getPoint());
-                                int col = table.columnAtPoint(e.getPoint());
-                                Object value = table.getValueAt(row, col);
-
-                                if (value != null && value.toString().contains("<a href=")) {
-                                    try {
-                                        Document doc = Jsoup.parse(value.toString());
-                                        Element link = doc.select("a").first();
-                                        String url = link.attr("href");
-
-                                        // Open the link in the user's default browser
-                                        if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
-                                            Desktop.getDesktop().browse(new URI(url));
-                                        }
-                                    } catch (IOException | URISyntaxException ex) {
-                                        ex.printStackTrace();
-                                    }
-                                }
+                        for (int i = 0; i < table.getColumnCount(); i++) {
+                            if (i != hyperlinkColumnIndex) {
+                                table.getColumnModel().getColumn(i).setCellRenderer(new JTextAreaCellRenderer());
                             }
-                        });
-                       // handleTableLinkClick(table);
+                        }
+
+                        table.getColumnModel().getColumn(hyperlinkColumnIndex).setCellRenderer(new HyperlinkCellRenderer());
+
+                        adjustRowHeight(table); */
 
                         JScrollPane panel = new JScrollPane(table);
                         panel.setPreferredSize(new Dimension(1500, 500));
@@ -394,6 +412,8 @@ public class WebSearch extends ContextCommand {
                         frame.add(panel);
                         frame.pack();
                         frame.setVisible(true);
+                        
+                        
                     } catch (IOException e) {
                         e.printStackTrace();
                     }

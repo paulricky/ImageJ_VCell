@@ -81,7 +81,7 @@ public class OnlineImageLoad extends ContextCommand {
             }
             imp.show(Opener.getLoadRate(startTime,imp));
         }
-        IJ.register(URLOpener.class);  // keeps this class from being GC'd
+        IJ.register(URLOpener.class);  
     }
     
     boolean noExtension(String url) {
@@ -89,7 +89,7 @@ public class OnlineImageLoad extends ContextCommand {
         if (lastSlash==-1) lastSlash = 0;
         int lastDot = url.lastIndexOf(".");
         if (lastDot==-1 || lastDot<lastSlash || (url.length()-lastDot)>6)
-            return true;  // no extension
+            return true; 
         else
             return false;
     }
