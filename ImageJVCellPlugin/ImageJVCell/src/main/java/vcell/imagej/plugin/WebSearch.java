@@ -78,6 +78,7 @@ public class WebSearch extends ContextCommand {
             }
         });
 
+
         table.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -149,6 +150,7 @@ public class WebSearch extends ContextCommand {
 
         return data;
     }
+
     
     private static void handleTableLinkClick(JTable table, int row, int column) {
         String url = (String) table.getValueAt(row, column);
@@ -366,9 +368,25 @@ public class WebSearch extends ContextCommand {
                             public void mouseClicked(MouseEvent e) {
                                 int row = table.rowAtPoint(e.getPoint());
                                 int col = table.columnAtPoint(e.getPoint());
-                                handleTableLinkClick(table, row, col);
+                                Object value = table.getValueAt(row, col);
+
+                                if (value != null && value.toString().contains("<a href=")) {
+                                    try {
+                                        Document doc = Jsoup.parse(value.toString());
+                                        Element link = doc.select("a").first();
+                                        String url = link.attr("href");
+
+                                        // Open the link in the user's default browser
+                                        if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                                            Desktop.getDesktop().browse(new URI(url));
+                                        }
+                                    } catch (IOException | URISyntaxException ex) {
+                                        ex.printStackTrace();
+                                    }
+                                }
                             }
                         });
+                       // handleTableLinkClick(table);
 
                         JScrollPane panel = new JScrollPane(table);
                         panel.setPreferredSize(new Dimension(1500, 500));

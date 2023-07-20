@@ -42,7 +42,7 @@ import javax.swing.text.html.HTMLFrameHyperlinkEvent;
 import javax.swing.text.html.StyleSheet;
 
 //@SuppressWarnings("unused")
-@Plugin(type = ContextCommand.class, menuPath = "Plugins>VCell> Test Search")
+@Plugin(type = ContextCommand.class, menuPath = "Plugins>VCell> Base Version")
 public class BaseImport extends ContextCommand {
     @Parameter
     private UIService uiService;
@@ -166,16 +166,38 @@ public class BaseImport extends ContextCommand {
         return data;
     }
     
-    private static void handleTableLinkClick(JTable table, int row, int column) {
-        String url = (String) table.getValueAt(row, column);
-        if (url != null && !url.isEmpty()) {
-            try {
-                Desktop.getDesktop().browse(new URI(url));
-            } catch (IOException | URISyntaxException e) {
-                e.printStackTrace();
-            }
+    private static void handleTableLinkClick(JTable table, int row, int column) throws IOException {
+        String value = (String) table.getValueAt(row, column);
+        if (value != null && value.contains("<a href=")) {
+            Document doc = Jsoup.parse(value);
+			Element link = doc.select("a").first();
+			String url = link.attr("abs:href");
+			JEditorPane editorPane = new JEditorPane();
+			editorPane.setEditable(false);
+			editorPane.setContentType("text/html");
+			editorPane.setText(value);
+			editorPane.addHyperlinkListener(e -> {
+			    if (e.getEventType() == HyperlinkEvent.EventType.ACTIVATED) {
+			        if (e instanceof HTMLFrameHyperlinkEvent) {
+			            HTMLFrameHyperlinkEvent evt = (HTMLFrameHyperlinkEvent) e;
+			            HTMLDocument doc1 = (HTMLDocument) editorPane.getDocument();
+			            doc1.processHTMLFrameHyperlinkEvent(evt);
+			        } else {
+			            try {
+			                Desktop.getDesktop().browse(e.getURL().toURI());
+			            } catch (IOException | URISyntaxException ex) {
+			                ex.printStackTrace();
+			            }
+			        }
+			    }
+			});
+
+			JScrollPane scrollPane = new JScrollPane(editorPane);
+			scrollPane.setPreferredSize(new Dimension(800, 600));
+			JOptionPane.showMessageDialog(null, scrollPane, "Link", JOptionPane.PLAIN_MESSAGE);
         }
     }
+
 
     @SuppressWarnings("serial")
     private class JTextAreaCellRenderer extends JTextArea implements TableCellRenderer {
@@ -387,7 +409,11 @@ public class BaseImport extends ContextCommand {
                             public void mouseClicked(MouseEvent e) {
                                 int row = table.rowAtPoint(e.getPoint());
                                 int col = table.columnAtPoint(e.getPoint());
-                                handleTableLinkClick(table, row, col);
+                                try {
+									handleTableLinkClick(table, row, col);
+								} catch (IOException e1) {
+									e1.printStackTrace();
+								}
                             }
                         });
 
