@@ -21,7 +21,6 @@ import ij.plugin.URLOpener;
 import ij.plugin.frame.*;
 import java.awt.Color;
 
-
 import org.scijava.command.ContextCommand;
 
 import org.scijava.plugin.Plugin;
